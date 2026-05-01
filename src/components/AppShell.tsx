@@ -8,41 +8,26 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import NewProposalModal from '@/components/NewProposalModal';
 import FloatingAssistant from '@/components/FloatingAssistant';
+import { UserProvider, useUser } from '@/lib/UserContext';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [modalOpen, setModalOpen] = useState(false);
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
+  const { role, user, loading: userLoading } = useUser();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-      if (!session && pathname !== '/login') {
-        router.push('/login');
-      } else if (session && pathname === '/login') {
-        router.push('/');
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session && pathname !== '/login') {
-        router.push('/login');
-      } else if (session && pathname === '/login') {
-        router.push('/');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [pathname, router]);
+    if (!userLoading && !user && pathname !== '/login') {
+      router.push('/login');
+    } else if (!userLoading && user && pathname === '/login') {
+      router.push('/');
+    }
+  }, [user, userLoading, pathname, router]);
 
   async function handleLogout() {
+    const { supabase } = await import('@/lib/supabase');
     await supabase.auth.signOut();
     router.push('/login');
   }
@@ -57,67 +42,82 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   }
 
-  if (loading) {
-    return <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>Cargando...</div>;
+  if (!user && !userLoading && pathname !== '/login') {
+    return null; // El useEffect se encargará de la redirección
   }
 
-  if (!session || pathname === '/login') {
+  if (!user || pathname === '/login') {
     return <>{children}</>;
   }
 
   return (
     <div className="app-container">
-      {/* Sidebar Navigation */}
-      <aside className="sidebar">
+      {/* SIDEBAR */}
+      <aside className="sidebar hide-on-print">
         <div style={{ marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
           <Image src="/logo_3d.png" alt="P&P CONSTRUYE" width={160} height={80} style={{ objectFit: 'contain', filter: 'brightness(1.1)' }} priority />
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-          <Link href="/" className="nav-link"><LayoutDashboard size={20} /> Dashboard</Link>
-          <Link href="/clientes" className="nav-link"><Users size={20} /> Clientes</Link>
-          <Link href="/proyectos" className="nav-link"><HardHat size={20} /> Proyectos</Link>
-          <Link href="/materiales" className="nav-link"><Package size={20} /> Materiales</Link>
-          <Link href="/administracion" className="nav-link"><Wallet size={20} /> Administración</Link>
+          <Link href="/" className={`nav-link ${pathname === '/' ? 'active' : ''}`}>
+            <LayoutDashboard size={20} /> Dashboard
+          </Link>
+          <Link href="/clientes" className={`nav-link ${pathname.startsWith('/clientes') ? 'active' : ''}`}>
+            <Users size={20} /> Clientes
+          </Link>
+          <Link href="/proyectos" className={`nav-link ${pathname.startsWith('/proyectos') ? 'active' : ''}`}>
+            <HardHat size={20} /> Proyectos
+          </Link>
+          <Link href="/materiales" className={`nav-link ${pathname.startsWith('/materiales') ? 'active' : ''}`}>
+            <Package size={20} /> Materiales
+          </Link>
+          <Link href="/administracion" className={`nav-link ${pathname === '/administracion' ? 'active' : ''}`}>
+            <BarChart3 size={20} /> Administración
+          </Link>
         </nav>
 
-        <div style={{ marginTop: 'auto', paddingTop: '2rem', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <Link href="/auditoria" className="nav-link"><ShieldCheck size={20} /> Auditoría</Link>
-          <Link href="/ajustes" className="nav-link"><Settings size={20} /> Ajustes</Link>
-          <button onClick={handleLogout} className="nav-link" style={{ background: 'transparent', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', color: '#ef4444' }}>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
+
+          
+          <div style={{ padding: '0.8rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+             <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'black', fontSize: '0.8rem' }}>
+               {user?.user_metadata?.name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
+             </div>
+             <div style={{ flex: 1, minWidth: 0 }}>
+               <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                 {user?.user_metadata?.name || 'Usuario'}
+               </div>
+               <div style={{ fontSize: '0.7rem', color: role === 'admin' ? 'var(--primary-color)' : 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 'bold' }}>
+                 {role === 'admin' ? 'Administrador' : 'Observador'}
+               </div>
+             </div>
+          </div>
+
+          <button className="nav-link" onClick={handleLogout} style={{ width: '100%', border: 'none', background: 'none', cursor: 'pointer' }}>
             <LogOut size={20} /> Cerrar Sesión
           </button>
         </div>
-
-        {/* Discreet User Info */}
-        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Usuario Activo</div>
-          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {session?.user?.user_metadata?.name || 'Henry Daniel Peraza'}
-          </div>
-        </div>
       </aside>
 
-      {/* Main Content Area */}
+      {/* MAIN CONTENT */}
       <main className="main-content">
-        {/* Topbar: Solo se muestra si no estamos en una vista de detalle de cliente/proyecto para evitar redundancia */}
-        {!pathname.includes('/clientes/') && !pathname.includes('/proyectos/') && (
-          <header className="hide-on-print" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '2rem' }}>
-            <button className="btn-primary" onClick={handleNewProposal}>
-              <PlusCircle size={20} /> Nueva Propuesta
-            </button>
+        {pathname !== '/login' && (
+          <header className="hide-on-print" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '2.5rem' }}>
+             {/* Header vacío o para futuros elementos globales */}
           </header>
         )}
 
         {children}
       </main>
 
-      {/* Floating Global AI Assistant */}
-      <FloatingAssistant onProposalSaved={() => {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('proposalSaved'));
-        }
-      }} />
+      {/* Floating Global AI Assistant - Solo para Admins */}
+      {role === 'admin' && (
+        <FloatingAssistant onProposalSaved={() => {
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('proposalSaved'));
+          }
+        }} />
+      )}
 
       <NewProposalModal
         isOpen={modalOpen}

@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Package, Plus, Pencil, Trash2, Check, X, Search, Tag, DollarSign } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Check, X, Search, Tag, DollarSign, Lock } from 'lucide-react';
 import { getMaterials, upsertMaterial, deleteMaterial, Material } from '@/app/actions/material-actions';
+import { useAdminAction } from '@/lib/useAdminAction';
 
 const CATEGORIES = ['Agregados', 'Metales', 'Acabados', 'Techos', 'Fijaciones', 'Mampostería', 'General'];
 
 const EMPTY: Omit<Material, 'id' | 'updated_at'> = { name: '', unit: '', price_usd: 0, category: 'General', provider: '', notes: '' };
 
 export default function MaterialesPage() {
+  const { canCreate, canEdit, canDelete, isObserver } = useAdminAction();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -28,6 +30,10 @@ export default function MaterialesPage() {
   }
 
   async function saveEdit(id: string) {
+    if (!canEdit) {
+      alert('❌ Solo administradores pueden editar materiales');
+      return;
+    }
     setSaving(true);
     try {
       await upsertMaterial({ ...editData, id } as any);
@@ -37,6 +43,10 @@ export default function MaterialesPage() {
   }
 
   async function saveNew() {
+    if (!canCreate) {
+      alert('❌ Solo administradores pueden crear materiales');
+      return;
+    }
     if (!newMat.name || !newMat.unit) return;
     setSaving(true);
     try {
@@ -48,6 +58,10 @@ export default function MaterialesPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!canDelete) {
+      alert('❌ Solo administradores pueden eliminar materiales');
+      return;
+    }
     if (!confirm('¿Eliminar este material?')) return;
     await deleteMaterial(id);
     await load();
@@ -87,9 +101,15 @@ export default function MaterialesPage() {
             Precios actualizados que la IA usa automáticamente en cada cotización
           </p>
         </div>
-        <button className="btn-primary" onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-          <Plus size={16} /> Nuevo Material
-        </button>
+        {canCreate ? (
+          <button className="btn-primary" onClick={() => setShowAdd(true)} style={{ display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+            <Plus size={16} /> Nuevo Material
+          </button>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            <Lock size={16} /> Solo administrador puede crear
+          </div>
+        )}
       </div>
 
       {/* Stats */}
@@ -210,10 +230,18 @@ export default function MaterialesPage() {
                           <td style={{ padding: '.75rem 1.2rem', fontSize: '.82rem', color: 'var(--text-muted)' }}>{m.notes || '—'}</td>
                           <td style={{ padding: '.75rem 1.2rem', fontSize: '.78rem', color: 'var(--text-muted)' }}>{new Date(m.updated_at).toLocaleDateString('es-VE')}</td>
                           <td style={{ padding: '.75rem 1.2rem' }}>
-                            <div style={{ display: 'flex', gap: '.4rem' }}>
-                              <button style={{ background: 'rgba(56,189,248,.08)', border: '1px solid rgba(56,189,248,.2)', borderRadius: '7px', padding: '.4rem .65rem', cursor: 'pointer', color: 'var(--accent-blue)' }} onClick={() => { setEditId(m.id); setEditData(m); }}><Pencil size={14} /></button>
-                              <button style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', borderRadius: '7px', padding: '.4rem .65rem', cursor: 'pointer', color: 'var(--danger)' }} onClick={() => handleDelete(m.id)}><Trash2 size={14} /></button>
-                            </div>
+                            {canEdit || canDelete ? (
+                              <div style={{ display: 'flex', gap: '.4rem' }}>
+                                {canEdit && (
+                                  <button style={{ background: 'rgba(56,189,248,.08)', border: '1px solid rgba(56,189,248,.2)', borderRadius: '7px', padding: '.4rem .65rem', cursor: 'pointer', color: 'var(--accent-blue)' }} onClick={() => { setEditId(m.id); setEditData(m); }}><Pencil size={14} /></button>
+                                )}
+                                {canDelete && (
+                                  <button style={{ background: 'rgba(239,68,68,.08)', border: '1px solid rgba(239,68,68,.2)', borderRadius: '7px', padding: '.4rem .65rem', cursor: 'pointer', color: 'var(--danger)' }} onClick={() => handleDelete(m.id)}><Trash2 size={14} /></button>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '.75rem', color: 'var(--text-muted)' }}>Sin permisos</span>
+                            )}
                           </td>
                         </>
                       )}

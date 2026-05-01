@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/formatters';
+import { useAdminAction } from '@/lib/useAdminAction';
 import {
   TrendingUp,
   TrendingDown,
@@ -12,7 +13,16 @@ import {
   Activity,
   FileText,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  Users,
+  ShieldCheck,
+  User,
+  RefreshCcw,
+  AlertCircle,
+  UserPlus,
+  X,
+  Eye,
+  Lock
 } from 'lucide-react';
 
 interface ProjectAdmin {
@@ -28,6 +38,7 @@ interface ProjectAdmin {
 }
 
 export default function AdministracionDashboard() {
+  const { canCreate, canEdit, canDelete, isObserver } = useAdminAction();
   const [projects, setProjects] = useState<ProjectAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -35,11 +46,104 @@ export default function AdministracionDashboard() {
   const [globalNotes, setGlobalNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [activeTab, setActiveTab] = useState<'finanzas' | 'usuarios'>('finanzas');
+  const [users, setUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [createUserError, setCreateUserError] = useState<string | null>(null);
+  const [createUserSuccess, setCreateUserSuccess] = useState(false);
 
   useEffect(() => {
     fetchAdminData();
     fetchGlobalNotes();
+    fetchUsers();
+    fetchCurrentUser();
   }, []);
+
+  async function fetchCurrentUser() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) setCurrentUser(session.user);
+  }
+
+  async function fetchUsers() {
+    setLoadingUsers(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('❌ Error fetching users:', error.message, error.details);
+        alert(`Error al cargar usuarios:\n${error.message}\n\n${error.details || ''}`);
+        throw error;
+      }
+      console.log(`✅ Users loaded: ${data?.length || 0}`);
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Fetch users error:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  }
+
+  async function handleToggleRole(userId: string, currentRole: string) {
+    if (!canEdit) {
+      alert('❌ Solo administradores pueden cambiar roles de usuarios');
+      return;
+    }
+    const newRole = currentRole === 'admin' ? 'viewer' : 'admin';
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', userId);
+      
+      if (error) throw error;
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+    } catch (error: any) {
+      alert('Error al cambiar rol: ' + error.message);
+    }
+  }
+
+  async function handleCreateUser(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!canCreate) {
+      alert('❌ Solo administradores pueden crear usuarios');
+      return;
+    }
+
+    setCreatingUser(true);
+    setCreateUserError(null);
+    setCreateUserSuccess(false);
+    try {
+      const res = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newUserEmail, password: newUserPassword, name: newUserName, role: 'viewer' }),
+      });
+      const json = await res.json();
+      console.log('Create user response:', res.status, json);
+      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+      setCreateUserSuccess(true);
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      await fetchUsers();
+      setTimeout(() => { setShowCreateUser(false); setCreateUserSuccess(false); }, 1500);
+    } catch (err: any) {
+      console.error('Create user error:', err);
+      setCreateUserError(err.message);
+    } finally {
+      setCreatingUser(false);
+    }
+  }
 
   async function fetchAdminData() {
     try {
@@ -55,10 +159,15 @@ export default function AdministracionDashboard() {
         .in('status', ['in_progress', 'completed'])
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching admin data:', error.message, error.details);
+        alert(`Error al cargar datos de administración:\n${error.message}`);
+        throw error;
+      }
+      console.log(`✅ Admin data loaded: ${data?.length || 0} projects`);
       setProjects(data as any);
     } catch (error) {
-      console.error('Error fetching admin data:', error);
+      console.error('Admin fetch error:', error);
     } finally {
       setLoading(false);
     }
@@ -143,6 +252,7 @@ export default function AdministracionDashboard() {
   const grossProfit = totalIncome - totalExpenses;
 
   return (
+    <>
     <div className="animate-fade" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
       
       {/* HEADER */}
@@ -158,6 +268,46 @@ export default function AdministracionDashboard() {
         </div>
       </div>
 
+      {/* TAB SELECTOR */}
+      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', marginBottom: '1rem' }}>
+        <button 
+          onClick={() => setActiveTab('finanzas')}
+          style={{ 
+            padding: '1rem 1.5rem', 
+            background: 'none', 
+            border: 'none', 
+            borderBottom: activeTab === 'finanzas' ? '2px solid var(--primary-color)' : '2px solid transparent',
+            color: activeTab === 'finanzas' ? 'var(--primary-color)' : 'var(--text-muted)',
+            cursor: 'pointer',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          <PieChart size={18} /> Finanzas Globales
+        </button>
+        <button 
+          onClick={() => setActiveTab('usuarios')}
+          style={{ 
+            padding: '1rem 1.5rem', 
+            background: 'none', 
+            border: 'none', 
+            borderBottom: activeTab === 'usuarios' ? '2px solid var(--primary-color)' : '2px solid transparent',
+            color: activeTab === 'usuarios' ? 'var(--primary-color)' : 'var(--text-muted)',
+            cursor: 'pointer',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}
+        >
+          <Users size={18} /> Gestión de Usuarios
+        </button>
+      </div>
+
+      {activeTab === 'finanzas' ? (
+        <>
       {/* FLUJO DE CONTRATOS Y COBRANZAS */}
       <h3 style={{ fontSize: '1.2rem', margin: '0 0 -1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
         <Wallet size={20} /> Resumen de Contratación y Cobranzas
@@ -351,6 +501,185 @@ export default function AdministracionDashboard() {
         </div>
       </div>
 
+      </>
+      ) : (
+        <div className="animate-fade">
+          <div className="card" style={{ padding: '0', overflow: 'hidden' }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.01)' }}>
+              <div>
+                <h2 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ShieldCheck size={20} color="var(--primary-color)" /> Control de Usuarios y Roles
+                </h2>
+                <p className="text-muted" style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem' }}>
+                  Define quién puede modificar datos y quién tiene acceso de solo lectura.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button className="btn-secondary" style={{ padding: '0.5rem 1rem' }} onClick={fetchUsers}>
+                  <RefreshCcw size={16} className={loadingUsers ? 'animate-spin' : ''} />
+                </button>
+                {canCreate ? (
+                  <button className="btn-primary" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }} onClick={() => setShowCreateUser(true)}>
+                    <UserPlus size={16} /> Crear Usuario
+                  </button>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
+                    <Lock size={14} /> Solo admin
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ padding: '1.5rem', background: 'rgba(245,158,11,0.05)', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <AlertCircle size={20} color="var(--primary-color)" />
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
+                <strong>Modo Observador (Viewer):</strong> El usuario podrá entrar a todos los módulos y ver el historial, pero no verá los botones de "Crear", "Registrar", "Editar" o "Eliminar".
+              </div>
+            </div>
+
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'rgba(0,0,0,0.2)', color: 'var(--text-muted)', fontSize: '0.85rem', borderBottom: '1px solid var(--border-color)' }}>
+                  <th style={{ textAlign: 'left', padding: '1rem 1.5rem' }}>USUARIO</th>
+                  <th style={{ textAlign: 'center', padding: '1rem 1.5rem' }}>ROL ACTUAL</th>
+                  <th style={{ textAlign: 'right', padding: '1rem 1.5rem' }}>ACCIONES</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                    <td style={{ padding: '1.25rem 1.5rem' }}>
+                      <div style={{ fontWeight: '600', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <User size={16} className="text-muted" /> {u.name || 'Usuario sin nombre'}
+                        {currentUser?.id === u.id && <span className="badge" style={{ background: 'rgba(56,189,248,0.1)', color: 'var(--accent-blue)', fontSize: '0.65rem' }}>TÚ</span>}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>ID: {u.id}</div>
+                    </td>
+                    <td style={{ padding: '1.25rem 1.5rem', textAlign: 'center' }}>
+                      <span className={`badge ${u.role === 'admin' ? 'badge-active' : 'badge-pending'}`} style={{ minWidth: '100px', textAlign: 'center' }}>
+                        {u.role === 'admin' ? 'Administrador' : 'Observador'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '1.25rem 1.5rem', textAlign: 'right' }}>
+                      {canEdit ? (
+                        <button
+                          className="btn-secondary"
+                          style={{
+                            fontSize: '0.8rem',
+                            padding: '0.4rem 0.8rem',
+                            borderColor: u.role === 'admin' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                            color: u.role === 'admin' ? 'var(--danger)' : 'var(--success)'
+                          }}
+                          onClick={() => handleToggleRole(u.id, u.role)}
+                          disabled={currentUser?.id === u.id}
+                        >
+                          {u.role === 'admin' ? 'Degradar a Observador' : 'Promover a Admin'}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Sin permisos</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
+
+    {/* MODAL: CREAR USUARIO */}
+    {showCreateUser && (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+        <div className="card animate-fade" style={{ width: '100%', maxWidth: '440px', padding: '2rem', position: 'relative' }}>
+          <button onClick={() => setShowCreateUser(false)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+            <X size={20} />
+          </button>
+
+          <h2 style={{ fontSize: '1.2rem', margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <UserPlus size={20} color="var(--primary-color)" /> Crear Usuario Observador
+          </h2>
+          <p className="text-muted" style={{ fontSize: '0.85rem', margin: '0 0 1.5rem 0' }}>
+            El usuario podrá ver todo el sistema pero no podrá crear, editar ni eliminar datos.
+          </p>
+
+          <div style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '8px', padding: '0.75rem 1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Eye size={16} color="var(--success)" />
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>Rol asignado automáticamente: <strong style={{ color: 'var(--success)' }}>Observador (Viewer)</strong></span>
+          </div>
+
+          <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label className="text-muted" style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem' }}>Nombre completo</label>
+              <div style={{ position: 'relative' }}>
+                <User size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="text"
+                  required
+                  className="input-field"
+                  style={{ paddingLeft: '2.5rem' }}
+                  placeholder="Ej: María García"
+                  value={newUserName}
+                  onChange={e => setNewUserName(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-muted" style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem' }}>Correo electrónico</label>
+              <div style={{ position: 'relative' }}>
+                <User size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="email"
+                  required
+                  className="input-field"
+                  style={{ paddingLeft: '2.5rem' }}
+                  placeholder="usuario@empresa.com"
+                  value={newUserEmail}
+                  onChange={e => setNewUserEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-muted" style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.82rem' }}>Contraseña temporal</label>
+              <div style={{ position: 'relative' }}>
+                <Lock size={16} style={{ position: 'absolute', left: '0.9rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  className="input-field"
+                  style={{ paddingLeft: '2.5rem' }}
+                  placeholder="Mínimo 6 caracteres"
+                  value={newUserPassword}
+                  onChange={e => setNewUserPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {createUserError && (
+              <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid var(--danger)', color: 'var(--danger)', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                {createUserError}
+              </div>
+            )}
+            {createUserSuccess && (
+              <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--success)', color: 'var(--success)', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <CheckCircle2 size={16} /> Usuario creado exitosamente.
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <button type="button" className="btn-secondary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { setShowCreateUser(false); setCreateUserError(null); setCreateUserSuccess(false); }}>
+                Cancelar
+              </button>
+              <button type="submit" className="btn-primary" style={{ flex: 1, justifyContent: 'center' }} disabled={creatingUser}>
+                {creatingUser ? 'Creando...' : <><UserPlus size={16} /> Crear Usuario</>}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

@@ -1,19 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Search, 
-  UserPlus, 
-  Phone, 
-  Mail, 
+import {
+  Search,
+  UserPlus,
+  Phone,
+  Mail,
   Briefcase,
-  ChevronRight
+  ChevronRight,
+  Lock
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { useAdminAction } from '@/lib/useAdminAction';
 
 export default function ClientesPage() {
   const router = useRouter();
+  const { canCreate, isObserver } = useAdminAction();
   const [searchTerm, setSearchTerm] = useState('');
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,7 +42,11 @@ export default function ClientesPage() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && data) {
+    if (error) {
+      console.error('❌ Error fetching clients:', error.message);
+      alert(`Error al cargar clientes: ${error.message}`);
+    } else if (data) {
+      console.log(`✅ Clientes cargados: ${data.length}`);
       setClients(data);
     }
     setLoading(false);
@@ -47,6 +54,12 @@ export default function ClientesPage() {
 
   async function handleAddClient(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!canCreate) {
+      alert('❌ Solo administradores pueden crear clientes');
+      return;
+    }
+
     const { data, error } = await supabase
       .from('clients')
       .insert([newClient])
@@ -72,19 +85,25 @@ export default function ClientesPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div style={{ position: 'relative', width: '400px' }}>
           <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input 
-            type="text" 
-            placeholder="Buscar por nombre o empresa..." 
+          <input
+            type="text"
+            placeholder="Buscar por nombre o empresa..."
             className="input-field"
             style={{ paddingLeft: '3rem' }}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          <UserPlus size={20} /> Nuevo Cliente
-        </button>
+
+        {canCreate ? (
+          <button className="btn-primary" onClick={() => setShowModal(true)}>
+            <UserPlus size={20} /> Nuevo Cliente
+          </button>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+            <Lock size={16} /> Solo administrador puede crear
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>

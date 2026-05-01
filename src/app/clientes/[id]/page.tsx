@@ -36,6 +36,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, handleMoneyInput, parseCurrency, formatOnBlur } from '@/lib/formatters';
 import NewProposalModal from '@/components/NewProposalModal';
+import { useUser } from '@/lib/UserContext';
 
 interface Client {
   id: string;
@@ -90,6 +91,8 @@ export default function ClienteDashboard() {
   const [editForm, setEditForm] = useState({ title: '', budget_usd: '', description: '' });
   const [aiRefinement, setAiRefinement] = useState('');
   const [refining, setRefining] = useState(false);
+  const { role } = useUser();
+  const isViewer = role === 'viewer';
   
   // Tabs State
   const [activeTab, setActiveTab] = useState<'proyectos' | 'pagos' | 'gastos' | 'adicionales' | 'compromisos' | 'adelantos' | 'propuestas'>('proyectos');
@@ -435,11 +438,15 @@ export default function ClienteDashboard() {
           </div>
         </div>
 
+      {/* ACTION BAR */}
+      {!isViewer && (
         <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'flex-start', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
           <button className="btn-primary" onClick={() => setShowProposalModal(true)} style={{ height: '38px', padding: '0 1.1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' }}>
             <PlusCircle size={16} /> Nueva Propuesta
           </button>
+          
           <div style={{ width: '1px', height: '20px', background: 'var(--border-color)', margin: '0 0.5rem' }} />
+          
           <button className="btn-primary" onClick={() => setShowPaymentModal(true)} style={{ height: '38px', padding: '0 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--success)', borderColor: 'var(--success)', boxShadow: '0 4px 12px rgba(16,185,129,0.15)' }}>
             <BriefcaseIcon size={15} /> Registrar Pago
           </button>
@@ -456,6 +463,7 @@ export default function ClienteDashboard() {
             <DollarIcon size={15} /> Registrar Gasto
           </button>
         </div>
+      )}
 
       {/* Estado de Cuenta Global y Rentabilidad del Cliente */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -639,23 +647,27 @@ export default function ClienteDashboard() {
                           </td>
                           <td style={{ padding: '1rem', textAlign: 'right', fontWeight: 'bold' }}>${formatCurrency(p.budget_usd)}</td>
                           <td style={{ padding: '1rem', textAlign: 'right' }}>
-                            <button 
-                              className="btn-secondary" 
-                              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', marginRight: '0.5rem' }} 
-                              onClick={() => initiateEdit(p)}
-                            >
-                              <Edit3 size={14} /> Editar
-                            </button>
+                            {!isViewer && (
+                              <button 
+                                className="btn-secondary" 
+                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', marginRight: '0.5rem' }} 
+                                onClick={() => initiateEdit(p)}
+                              >
+                                <Edit3 size={14} /> Editar
+                              </button>
+                            )}
                             <button className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', marginRight: '0.5rem' }} onClick={() => router.push(`/proyectos?print=${p.id}`)}>
                               <Printer size={14} /> Imprimir
                             </button>
-                            <button 
-                              className="btn-secondary" 
-                              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }} 
-                              onClick={() => initiateDelete(p.id, 'project')}
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            {!isViewer && (
+                              <button 
+                                className="btn-secondary" 
+                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }} 
+                                onClick={() => initiateDelete(p.id, 'project')}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

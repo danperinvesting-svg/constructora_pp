@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Search, 
-  FileText, 
-  Clock, 
-  CheckCircle, 
-  Printer, 
-  Edit3, 
+import {
+  Search,
+  FileText,
+  Clock,
+  CheckCircle,
+  Printer,
+  Edit3,
   ChevronRight,
   DollarSign,
   Trash2,
@@ -16,13 +16,15 @@ import {
   LayoutDashboard,
   Save,
   X,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { handleMoneyInput, parseCurrency, formatCurrency, formatOnBlur } from '@/lib/formatters';
 import { modifyProposalText } from '@/app/actions/ai-actions';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useAdminAction } from '@/lib/useAdminAction';
 
 interface Project {
   id: string;
@@ -37,6 +39,7 @@ interface Project {
 
 export default function ProyectosPage() {
   const router = useRouter();
+  const { canEdit, canDelete, isObserver } = useAdminAction();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -45,7 +48,7 @@ export default function ProyectosPage() {
   const [editContent, setEditContent] = useState('');
   const [editBudget, setEditBudget] = useState<string>('0');
   const [saving, setSaving] = useState(false);
-  
+
   const [aiInstruction, setAiInstruction] = useState('');
   const [isModifyingAi, setIsModifyingAi] = useState(false);
 
@@ -121,6 +124,11 @@ export default function ProyectosPage() {
   }
 
   async function handleStatusUpdate(id: string, newStatus: string) {
+    if (!canEdit) {
+      alert('❌ Solo administradores pueden cambiar el estado de las propuestas');
+      return;
+    }
+
     const statusText = newStatus === 'in_progress' ? 'aprobar' : 'rechazar';
     if (!confirm(`¿Estás seguro de que deseas ${statusText} esta propuesta?`)) return;
 
@@ -140,6 +148,11 @@ export default function ProyectosPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!canDelete) {
+      alert('❌ Solo administradores pueden eliminar propuestas');
+      return;
+    }
+
     if (!confirm('¿ESTÁS SEGURO? Esta acción eliminará la propuesta de forma PERMANENTE y no se puede deshacer.')) return;
 
     const { error } = await supabase
@@ -347,10 +360,10 @@ export default function ProyectosPage() {
                    selectedProject.status}
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {!isEditing ? (
                   <>
-                    {selectedProject.status === 'proposal' && (
+                    {selectedProject.status === 'proposal' && canEdit && (
                       <>
                         <button className="btn-primary" style={{ background: 'var(--success)', borderColor: 'var(--success)' }} onClick={() => handleStatusUpdate(selectedProject.id, 'in_progress')}>
                           <Check size={16} /> Aprobar
@@ -360,15 +373,24 @@ export default function ProyectosPage() {
                         </button>
                       </>
                     )}
-                    <button className="btn-secondary" onClick={() => setIsEditing(true)}>
-                      <Edit3 size={16} /> Editar Texto
-                    </button>
+                    {canEdit && (
+                      <button className="btn-secondary" onClick={() => setIsEditing(true)}>
+                        <Edit3 size={16} /> Editar Texto
+                      </button>
+                    )}
                     <button className="btn-primary" onClick={handlePrint}>
                       <Printer size={16} /> Imprimir / PDF
                     </button>
-                    <button className="btn-secondary" style={{ color: '#ff4444' }} onClick={() => handleDelete(selectedProject.id)}>
-                      <Trash2 size={16} />
-                    </button>
+                    {canDelete && (
+                      <button className="btn-secondary" style={{ color: '#ff4444' }} onClick={() => handleDelete(selectedProject.id)}>
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                    {isObserver && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', padding: '0.5rem' }}>
+                        <Lock size={14} /> Modo lectura
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
