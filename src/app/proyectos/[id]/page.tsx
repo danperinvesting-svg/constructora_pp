@@ -91,6 +91,7 @@ export default function ProjectDashboard() {
   async function fetchProjectData() {
     setLoading(true);
     try {
+      const [
         projectRes,
         paymentsRes,
         costsRes,
