@@ -11,8 +11,7 @@ export async function GET(req: NextRequest) {
       .from('profiles')
       .select('id, email, role, name')
       .eq('email', 'henrydanielperaza@gmail.com')
-      .single()
-      .catch(e => ({ data: null, error: e }));
+      .single();
 
     console.log('User data:', userData, userError);
 

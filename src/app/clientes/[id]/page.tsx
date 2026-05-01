@@ -54,6 +54,7 @@ interface Client {
 interface Project {
   id: string;
   title: string;
+  description?: string;
   status: string;
   budget_usd: number;
   proposal_number?: number;

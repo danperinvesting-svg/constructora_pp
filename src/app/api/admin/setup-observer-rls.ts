@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     for (const table of tables) {
       const { error } = await supabaseAdmin.rpc('exec', {
         sql: `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;`
-      }).catch(e => ({ error: e }));
+      });
       console.log(`   ✅ ${table}`);
     }
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
       `;
 
-      const { error } = await supabaseAdmin.rpc('exec', { sql: adminPolicy }).catch(e => ({ error: e }));
+      const { error } = await supabaseAdmin.rpc('exec', { sql: adminPolicy });
       console.log(`   ✅ admin_all_${table}`);
     }
 
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         USING ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'viewer');
       `;
 
-      const { error } = await supabaseAdmin.rpc('exec', { sql: observerPolicy }).catch(e => ({ error: e }));
+      const { error } = await supabaseAdmin.rpc('exec', { sql: observerPolicy });
       console.log(`   ✅ observer_read_${table}`);
     }
 
