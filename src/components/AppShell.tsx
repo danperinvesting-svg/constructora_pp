@@ -11,6 +11,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import NewProposalModal from '@/components/NewProposalModal';
 import FloatingAssistant from '@/components/FloatingAssistant';
 import { UserProvider, useUser } from '@/lib/UserContext';
+import { supabase } from '@/lib/supabase';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -27,8 +28,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [user, userLoading, pathname, router]);
 
   async function handleLogout() {
-    const { supabase } = await import('@/lib/supabase');
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error signing out:', err);
+    }
     router.push('/login');
   }
 

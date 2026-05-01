@@ -65,27 +65,32 @@ export default function ProyectosPage() {
 
   async function fetchProjects() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('projects')
-      .select('*, clients(name)')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*, clients(name)')
+        .order('created_at', { ascending: false });
 
-    if (!error && data) {
-      setProjects(data);
-      
-      const urlParams = new URLSearchParams(window.location.search);
-      const printId = urlParams.get('print');
-      if (printId) {
-        const proj = data.find(p => p.id === printId);
-        if (proj) {
-          setSelectedProject(proj);
-          setIsEditing(false);
-          setTimeout(() => window.print(), 500);
-          window.history.replaceState({}, '', '/proyectos');
+      if (!error && data) {
+        setProjects(data);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const printId = urlParams.get('print');
+        if (printId) {
+          const proj = data.find(p => p.id === printId);
+          if (proj) {
+            setSelectedProject(proj);
+            setIsEditing(false);
+            setTimeout(() => window.print(), 500);
+            window.history.replaceState({}, '', '/proyectos');
+          }
         }
       }
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleSave() {
