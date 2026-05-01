@@ -2,18 +2,19 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Edit3, Send, Loader2, CheckCircle, Save, AlertCircle, FileText, User, DollarSign, Clock, ChevronRight } from 'lucide-react';
-import { sendChatMessage, generateFinalProposal, ChatMessage, ProposalData } from '@/app/actions/ai-actions';
+import { sendChatMessage, generateFinalProposal, modifyProposalText, ChatMessage, ProposalData } from '@/app/actions/ai-actions';
 import { supabase } from '@/lib/supabase';
+import { handleMoneyInput, parseCurrency, formatOnBlur } from '@/lib/formatters';
 
 interface Client { id: string; name: string; company_name?: string; }
-interface Props { isOpen: boolean; onClose: () => void; onSaved?: () => void; onOpenAI?: () => void; }
-type Mode = 'selector' | 'manual';
+interface Props { isOpen: boolean; onClose: () => void; onSaved?: () => void; onOpenAI?: () => void; initialClientId?: string; }
+type Mode = 'selector' | 'manual' | 'ai';
 type Step = 'chat' | 'preview' | 'done';
 
 const INITIAL_MSG: ChatMessage = { role: 'model', text: '¡Hola! Soy el asistente técnico de P&P CONSTRUYE. 👷\n\nCuéntame el proyecto: ¿qué vamos a construir, para quién y cuánto es el área o las medidas?' };
 const INIT_FORM = { title: '', clientId: '', clientName: '', objective: '', phases: '', time: '', amount: '', payment: '60% anticipo / 40% al finalizar', notes: '' };
 
-export default function NewProposalModal({ isOpen, onClose, onSaved, onOpenAI }: Props) {
+export default function NewProposalModal({ isOpen, onClose, onSaved, onOpenAI, initialClientId }: Props) {
   const [mode, setMode] = useState<Mode>('selector');
   const [step, setStep] = useState<Step>('chat');
   const [clients, setClients] = useState<Client[]>([]);
@@ -24,6 +25,8 @@ export default function NewProposalModal({ isOpen, onClose, onSaved, onOpenAI }:
   const [readyHint, setReadyHint] = useState(false);
   const [proposal, setProposal] = useState<ProposalData | null>(null);
   const [editableText, setEditableText] = useState('');
+  const [aiRefinement, setAiRefinement] = useState('');
+  const [refining, setRefining] = useState(false);
   const [linkedClientId, setLinkedClientId] = useState('');
   const [form, setForm] = useState(INIT_FORM);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -38,8 +41,13 @@ export default function NewProposalModal({ isOpen, onClose, onSaved, onOpenAI }:
 
   function reset() {
     setMode('selector'); setStep('chat'); setError(''); setInput('');
-    setReadyHint(false); setProposal(null); setEditableText(''); setLinkedClientId('');
-    setMessages([INITIAL_MSG]); setForm(INIT_FORM);
+    setReadyHint(false); setProposal(null); setEditableText(''); 
+    setLinkedClientId(initialClientId || '');
+    setMessages([INITIAL_MSG]); 
+    
+    // Si hay un ID inicial, buscar el nombre para el formulario manual
+    const initialClient = clients.find(c => c.id === initialClientId);
+    setForm({ ...INIT_FORM, clientId: initialClientId || '', clientName: initialClient?.name || '' });
   }
 
   async function fetchClients() {
@@ -92,11 +100,35 @@ export default function NewProposalModal({ isOpen, onClose, onSaved, onOpenAI }:
     setLoading(true); setError('');
     try {
       const fullText = `Proyecto: ${form.title}\nPara: ${form.clientName}\n\nObjetivo del Proyecto\n${form.objective}\n\nFases del Trabajo\n${form.phases}\n\nTiempo de Ejecución\n${form.time}\n\nINVERSIÓN TOTAL: $${form.amount}\n\nCondiciones de Pago\n${form.payment}\nTasa de Cambio: Se aplicará la tasa Binance vigente para el día del pago.${form.notes ? `\n\nNotas:\n${form.notes}` : ''}`;
-      const { error: err } = await supabase.from('projects').insert([{ client_id: form.clientId || null, title: form.title, description: fullText, status: 'proposal', budget_usd: parseFloat(form.amount) || 0 }]);
-      if (err) throw new Error(err.message);
-      setStep('done'); onSaved?.();
+      // En lugar de guardar directo, vamos a pasar por el preview para permitir refinamiento con IA
+      setProposal({
+        title: form.title,
+        clientName: form.clientName,
+        clientContact: '',
+        date: new Date().toLocaleDateString(),
+        area: '',
+        investmentAmount: form.amount,
+        executionTime: form.time,
+        fullProposalText: fullText
+      });
+      setEditableText(fullText);
+      setStep('preview');
+      setMode('ai'); // Cambiamos a modo AI para habilitar el preview con refinamiento
     } catch (e: any) { setError(e.message); }
     finally { setLoading(false); }
+  }
+
+  async function handleAiRefine() {
+    if (!aiRefinement.trim() || refining) return;
+    setRefining(true); setError('');
+    try {
+      const res = await modifyProposalText(editableText, aiRefinement);
+      if (res.success && res.modifiedText) {
+        setEditableText(res.modifiedText);
+        setAiRefinement('');
+      } else setError(res.error || 'Error al refinar el texto');
+    } catch (e: any) { setError(e.message); }
+    finally { setRefining(false); }
   }
 
   if (!isOpen) return null;
@@ -266,7 +298,30 @@ export default function NewProposalModal({ isOpen, onClose, onSaved, onOpenAI }:
                   <label style={{ fontSize: '.85rem', color: 'var(--text-muted)' }}>Texto de la Propuesta (editable)</label>
                   <span style={{ fontSize: '.73rem', color: 'var(--primary-color)' }}>✏️ Edita antes de formalizar</span>
                 </div>
-                <textarea className="input-field" style={{ minHeight: 380, resize: 'vertical', fontFamily: 'monospace', fontSize: '.84rem', lineHeight: 1.85 }} value={editableText} onChange={e => setEditableText(e.target.value)} />
+                <textarea className="input-field" style={{ minHeight: 320, resize: 'vertical', fontFamily: 'monospace', fontSize: '.84rem', lineHeight: 1.85 }} value={editableText} onChange={e => setEditableText(e.target.value)} />
+              </div>
+              <div style={{ ...cardStyle, borderStyle: 'dashed', borderColor: 'var(--primary-color)', background: 'rgba(245,158,11,0.03)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.85rem', color: 'var(--primary-color)' }}>
+                  <Sparkles size={14} /> Pide un ajuste a Pepe (IA)
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    className="input-field" 
+                    placeholder="Ej: 'Agrega un año de garantía' o 'Reduce el tiempo a 2 semanas'..." 
+                    style={{ flex: 1, fontSize: '0.85rem' }}
+                    value={aiRefinement}
+                    onChange={e => setAiRefinement(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAiRefine()}
+                  />
+                  <button 
+                    className="btn-primary" 
+                    style={{ padding: '0 1rem', minWidth: 'auto', background: 'var(--primary-color)', color: 'black' }}
+                    onClick={handleAiRefine}
+                    disabled={refining || !aiRefinement.trim()}
+                  >
+                    {refining ? <Loader2 size={16} className="animate-spin" /> : 'Aplicar'}
+                  </button>
+                </div>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '.4rem', fontSize: '.85rem', color: 'var(--text-muted)' }}>Vincular con Cliente Registrado (opcional)</label>
@@ -313,7 +368,14 @@ export default function NewProposalModal({ isOpen, onClose, onSaved, onOpenAI }:
               </div>
               <div>
                 <label>Monto Total (USD)</label>
-                <input className="input-field" type="number" placeholder="Ej: 850" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+                <input 
+                  className="input-field" 
+                  type="text" 
+                  placeholder="Ej: 850,00" 
+                  value={form.amount} 
+                  onChange={e => setForm({ ...form, amount: handleMoneyInput(e.target.value) })} 
+                  onBlur={e => setForm({ ...form, amount: formatOnBlur(e.target.value) })}
+                />
               </div>
               <div style={{ gridColumn: 'span 2' }}>
                 <label>Condiciones de Pago</label>

@@ -39,9 +39,8 @@ COMPORTAMIENTO:
 - Máximo 3 párrafos.`;
 
 const PROPOSAL_SYSTEM_PROMPT = `Eres el redactor de propuestas técnicas de P&P CONSTRUYE.
-Basándote en la conversación proporcionada, redacta una propuesta profesional EXACTAMENTE en este formato:
+Basándote en la conversación proporcionada, redacta una propuesta profesional EXACTAMENTE en este formato (SIN incluir guiones "---" al principio ni al final):
 
----
 Proyecto: [Nombre descriptivo del proyecto]
 Fecha: [Fecha de hoy]
 Para: [Nombre del cliente / familia]
@@ -64,7 +63,6 @@ INVERSIÓN TOTAL: $[Monto calculado o "Por Definir"]
 Condiciones y Métodos de Pago
 Esquema de Pago: Anticipo del 60% para la adquisición de materiales y movilización; 40% restante al finalizar la obra.
 Tasa de Cambio: El presupuesto se mantiene en divisas. De realizarse el pago en moneda nacional, se aplicará la tasa Binance vigente para el día del pago.
----
 
 TAMBIÉN incluye al inicio un bloque JSON (antes del texto de la propuesta):
 <JSON_DATA>
@@ -173,6 +171,8 @@ Genera la propuesta profesional ahora.`;
 
     const fullProposalText = responseText
       .replace(/<JSON_DATA>[\s\S]*?<\/JSON_DATA>/, '')
+      .replace(/^---\s*/, '')
+      .replace(/\s*---$/, '')
       .trim();
 
     return {
@@ -190,5 +190,44 @@ Genera la propuesta profesional ahora.`;
     };
   } catch (error: any) {
     return { success: false, error: `Error al generar propuesta: ${error.message}` };
+  }
+}
+
+// ─────────────────────────────────────────────
+// MODIFY PROPOSAL TEXT
+// ─────────────────────────────────────────────
+export async function modifyProposalText(currentText: string, instruction: string): Promise<{
+  success: boolean;
+  modifiedText?: string;
+  error?: string;
+}> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'TU_API_KEY_AQUI') {
+    return { success: false, error: 'API Key de Gemini no configurada.' };
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const prompt = `Eres un asistente técnico de construcción. A continuación te presento el texto actual de una propuesta de construcción.
+El usuario ha solicitado el siguiente cambio o ajuste: "${instruction}"
+
+Aplica el cambio solicitado sobre el texto actual manteniendo el formato profesional, sin añadir saludos ni despedidas innecesarias. 
+Devuelve ÚNICAMENTE el nuevo texto modificado. Elimina cualquier guión "---" al inicio o al final del texto.
+
+--- TEXTO ACTUAL ---
+${currentText}
+--- FIN DEL TEXTO ACTUAL ---`;
+
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text().trim();
+
+    return {
+      success: true,
+      modifiedText: responseText
+    };
+  } catch (error: any) {
+    return { success: false, error: `Error al modificar propuesta: ${error.message}` };
   }
 }

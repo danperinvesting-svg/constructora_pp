@@ -6,7 +6,7 @@ import { getMaterials, upsertMaterial, deleteMaterial, Material } from '@/app/ac
 
 const CATEGORIES = ['Agregados', 'Metales', 'Acabados', 'Techos', 'Fijaciones', 'Mampostería', 'General'];
 
-const EMPTY: Omit<Material, 'id' | 'updated_at'> = { name: '', unit: '', price_usd: 0, category: 'General', notes: '' };
+const EMPTY: Omit<Material, 'id' | 'updated_at'> = { name: '', unit: '', price_usd: 0, category: 'General', provider: '', notes: '' };
 
 export default function MaterialesPage() {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -55,7 +55,10 @@ export default function MaterialesPage() {
 
   const filtered = materials.filter(m => {
     const q = search.toLowerCase();
-    return !q || m.name.toLowerCase().includes(q) || m.category.toLowerCase().includes(q);
+    return !q || 
+      m.name.toLowerCase().includes(q) || 
+      m.category.toLowerCase().includes(q) || 
+      (m.provider && m.provider.toLowerCase().includes(q));
   });
 
   // Group by category
@@ -137,6 +140,10 @@ export default function MaterialesPage() {
               </select>
             </div>
             <div>
+              <label style={{ display: 'block', fontSize: '.8rem', color: 'var(--text-muted)', marginBottom: '.3rem' }}>Proveedor</label>
+              <input className="input-field" placeholder="Ej: Concretera X" value={newMat.provider} onChange={e => setNewMat({ ...newMat, provider: e.target.value })} />
+            </div>
+            <div>
               <label style={{ display: 'block', fontSize: '.8rem', color: 'var(--text-muted)', marginBottom: '.3rem' }}>Notas (opcional)</label>
               <input className="input-field" placeholder="Referencia, marca..." value={newMat.notes || ''} onChange={e => setNewMat({ ...newMat, notes: e.target.value })} />
             </div>
@@ -167,7 +174,7 @@ export default function MaterialesPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    {['Material', 'Unidad', 'Precio USD', 'Notas', 'Actualizado', 'Acciones'].map(h => (
+                    {['Material', 'Unidad', 'Precio USD', 'Proveedor', 'Notas', 'Actualizado', 'Acciones'].map(h => (
                       <th key={h} style={{ padding: '.7rem 1.2rem', textAlign: 'left', fontSize: '.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>{h}</th>
                     ))}
                   </tr>
@@ -182,6 +189,7 @@ export default function MaterialesPage() {
                           <td style={{ padding: '.55rem 1rem' }}><input className="input-field" style={{ padding: '.4rem .7rem', fontSize: '.85rem' }} value={editData.name ?? m.name} onChange={e => setEditData({ ...editData, name: e.target.value })} /></td>
                           <td style={{ padding: '.55rem 1rem' }}><input className="input-field" style={{ padding: '.4rem .7rem', fontSize: '.85rem', width: 90 }} value={editData.unit ?? m.unit} onChange={e => setEditData({ ...editData, unit: e.target.value })} /></td>
                           <td style={{ padding: '.55rem 1rem' }}><input className="input-field" type="number" step="0.01" style={{ padding: '.4rem .7rem', fontSize: '.85rem', width: 90 }} value={editData.price_usd ?? m.price_usd} onChange={e => setEditData({ ...editData, price_usd: parseFloat(e.target.value) || 0 })} /></td>
+                          <td style={{ padding: '.55rem 1rem' }}><input className="input-field" style={{ padding: '.4rem .7rem', fontSize: '.85rem' }} value={editData.provider ?? m.provider ?? ''} onChange={e => setEditData({ ...editData, provider: e.target.value })} /></td>
                           <td style={{ padding: '.55rem 1rem' }}><input className="input-field" style={{ padding: '.4rem .7rem', fontSize: '.85rem' }} value={editData.notes ?? m.notes ?? ''} onChange={e => setEditData({ ...editData, notes: e.target.value })} /></td>
                           <td style={{ padding: '.55rem 1rem' }} />
                           <td style={{ padding: '.55rem 1rem' }}>
@@ -198,6 +206,7 @@ export default function MaterialesPage() {
                           <td style={{ padding: '.75rem 1.2rem' }}>
                             <span style={{ fontWeight: 700, color: 'var(--success)', fontSize: '.95rem' }}>${Number(m.price_usd).toFixed(2)}</span>
                           </td>
+                          <td style={{ padding: '.75rem 1.2rem', fontSize: '.85rem', color: 'var(--accent-blue)', fontWeight: 500 }}>{m.provider || '—'}</td>
                           <td style={{ padding: '.75rem 1.2rem', fontSize: '.82rem', color: 'var(--text-muted)' }}>{m.notes || '—'}</td>
                           <td style={{ padding: '.75rem 1.2rem', fontSize: '.78rem', color: 'var(--text-muted)' }}>{new Date(m.updated_at).toLocaleDateString('es-VE')}</td>
                           <td style={{ padding: '.75rem 1.2rem' }}>

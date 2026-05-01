@@ -112,7 +112,7 @@ export default function FloatingAssistant({ onProposalSaved }: { onProposalSaved
 
   // Minimized bubble
   if (!open || minimized) return (
-    <button onClick={() => { setOpen(true); setMinimized(false); }}
+    <button className="hide-on-print" onClick={() => { setOpen(true); setMinimized(false); }}
       style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 999, width: 58, height: 58, borderRadius: '50%', background: 'linear-gradient(135deg,#f59e0b,#d97706)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(245,158,11,.4)', transition: 'transform .2s' }}
       onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.1)')}
       onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}>
@@ -126,7 +126,7 @@ export default function FloatingAssistant({ onProposalSaved }: { onProposalSaved
   );
 
   return (
-    <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 999, width: 440, maxHeight: '85vh', display: 'flex', flexDirection: 'column', background: '#161a22', border: '1px solid rgba(255,255,255,.1)', borderRadius: '20px', boxShadow: '0 24px 64px rgba(0,0,0,.6)', overflow: 'hidden' }}>
+    <div className="hide-on-print" style={{ position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 999, width: 440, maxHeight: '85vh', display: 'flex', flexDirection: 'column', background: '#161a22', border: '1px solid rgba(255,255,255,.1)', borderRadius: '20px', boxShadow: '0 24px 64px rgba(0,0,0,.6)', overflow: 'hidden' }}>
 
       {/* Header */}
       <div style={{ padding: '1rem 1.25rem', background: 'linear-gradient(135deg,rgba(245,158,11,.15),rgba(56,189,248,.08))', borderBottom: '1px solid rgba(255,255,255,.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>

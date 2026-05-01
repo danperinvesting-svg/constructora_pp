@@ -88,26 +88,36 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <LogOut size={20} /> Cerrar Sesión
           </button>
         </div>
+
+        {/* Discreet User Info */}
+        <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Usuario Activo</div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {session?.user?.user_metadata?.name || 'Henry Daniel Peraza'}
+          </div>
+        </div>
       </aside>
 
       {/* Main Content Area */}
       <main className="main-content">
-        {/* Topbar */}
-        <header className="hide-on-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-          <div>
-            <span className="text-muted">Bienvenido de nuevo,</span>
-            <h1 style={{ marginTop: '0.25rem' }}>{session?.user?.user_metadata?.name || 'Usuario'}</h1>
-          </div>
-          <button className="btn-primary" onClick={handleNewProposal}>
-            <PlusCircle size={20} /> Nueva Propuesta
-          </button>
-        </header>
+        {/* Topbar: Solo se muestra si no estamos en una vista de detalle de cliente/proyecto para evitar redundancia */}
+        {!pathname.includes('/clientes/') && !pathname.includes('/proyectos/') && (
+          <header className="hide-on-print" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '2rem' }}>
+            <button className="btn-primary" onClick={handleNewProposal}>
+              <PlusCircle size={20} /> Nueva Propuesta
+            </button>
+          </header>
+        )}
 
         {children}
       </main>
 
       {/* Floating Global AI Assistant */}
-      <FloatingAssistant onProposalSaved={() => {}} />
+      <FloatingAssistant onProposalSaved={() => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('proposalSaved'));
+        }
+      }} />
 
       <NewProposalModal
         isOpen={modalOpen}

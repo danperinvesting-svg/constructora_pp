@@ -227,3 +227,14 @@ h2 { font-size: 1.5rem; font-weight: 700; color: var(--primary-color); }
   position: relative;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
+
+/* Utils */
+.hide-on-print, .sidebar, nav, header {
+  display: inherit;
+}
+
+@media print {
+  .hide-on-print, .sidebar, nav, header, aside {
+    display: none !important;
+  }
+}

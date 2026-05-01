@@ -8,6 +8,7 @@ export interface Material {
   unit: string;
   price_usd: number;
   category: string;
+  provider?: string;
   notes?: string;
   updated_at: string;
 }

@@ -10,8 +10,10 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 export default function ClientesPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,8 +125,12 @@ export default function ClientesPage() {
                     </span>
                   </td>
                   <td style={{ padding: '1.25rem 1.5rem' }}>
-                    <button className="action-btn">
-                      Ver Proyectos <ChevronRight size={16} />
+                    <button 
+                      className="btn-secondary"
+                      style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary-color)', borderColor: 'rgba(245, 158, 11, 0.3)' }}
+                      onClick={() => router.push(`/clientes/${client.id}`)}
+                    >
+                      <Briefcase size={14} /> Ver Estado de Cuenta <ChevronRight size={14} />
                     </button>
                   </td>
                 </tr>
