@@ -441,13 +441,11 @@ export default function ClienteDashboard() {
 
       {/* ACTION BAR */}
       {!isViewer && (
-        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'flex-start', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'nowrap', overflowX: 'auto', justifyContent: 'flex-start', alignItems: 'center', background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
           <button className="btn-primary" onClick={() => setShowProposalModal(true)} style={{ height: '38px', padding: '0 1.1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(245,158,11,0.2)' }}>
             <PlusCircle size={16} /> Nueva Propuesta
           </button>
-          
-          <div style={{ width: '1px', height: '20px', background: 'var(--border-color)', margin: '0 0.5rem' }} />
-          
+
           <button className="btn-primary" onClick={() => setShowPaymentModal(true)} style={{ height: '38px', padding: '0 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'var(--success)', borderColor: 'var(--success)', boxShadow: '0 4px 12px rgba(16,185,129,0.15)' }}>
             <BriefcaseIcon size={15} /> Registrar Pago
           </button>
@@ -527,11 +525,11 @@ export default function ClienteDashboard() {
               <Users size={16} /> <span style={{ fontWeight: 700 }}>Ganancia Disponible</span>
             </div>
             <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'white', position: 'relative', zIndex: 1, letterSpacing: '-0.02em' }}>
-              ${formatCurrency(netProfit)}
+              ${formatCurrency(estimatedProfit)}
             </div>
             <div style={{ position: 'relative', zIndex: 1, marginTop: '0.5rem' }}>
                <span className="badge" style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa', fontSize: '0.8rem', padding: '0.2rem 0.6rem' }}>
-                 Retirado: ${formatCurrency(totalAdvances)}
+                 Contrato − Gastos − Compromisos
                </span>
             </div>
           </div>
@@ -898,20 +896,48 @@ export default function ClienteDashboard() {
 
           {activeTab === 'adelantos' && (
             <div>
+              {(() => {
+                const share = estimatedProfit / 2;
+                const henryAdvances = allAdvances.filter(a => a.partner_name === 'Henry Peraza').reduce((s, a) => s + Number(a.amount_usd), 0);
+                const losberAdvances = allAdvances.filter(a => a.partner_name === 'Losbers Perez').reduce((s, a) => s + Number(a.amount_usd), 0);
+                const henrySaldo = share - henryAdvances;
+                const losberSaldo = share - losberAdvances;
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                    {[
+                      { name: 'Henry Peraza', advances: henryAdvances, saldo: henrySaldo },
+                      { name: 'Losbers Perez', advances: losberAdvances, saldo: losberSaldo },
+                    ].map(partner => (
+                      <div key={partner.name} className="card" style={{ padding: '1.5rem', background: 'linear-gradient(145deg, rgba(139,92,246,0.06) 0%, rgba(0,0,0,0) 100%)', borderColor: 'rgba(139,92,246,0.2)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.2rem' }}>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(139,92,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#a78bfa', fontSize: '0.9rem' }}>
+                            {partner.name.charAt(0)}
+                          </div>
+                          <span style={{ fontWeight: 700, color: 'white', fontSize: '1rem' }}>{partner.name}</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: 'rgba(139,92,246,0.08)', borderRadius: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: '#a78bfa' }}>Le corresponde (50%)</span>
+                            <span style={{ fontWeight: 700, color: '#a78bfa' }}>${formatCurrency(share)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 0.8rem', background: 'rgba(239,68,68,0.06)', borderRadius: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--danger)' }}>Adelantos tomados</span>
+                            <span style={{ fontWeight: 700, color: 'var(--danger)' }}>−${formatCurrency(partner.advances)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.7rem 0.8rem', background: partner.saldo >= 0 ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', borderRadius: '8px', border: `1px solid ${partner.saldo >= 0 ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: partner.saldo >= 0 ? 'var(--success)' : 'var(--danger)' }}>Saldo disponible</span>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 800, color: partner.saldo >= 0 ? 'var(--success)' : 'var(--danger)' }}>${formatCurrency(Math.abs(partner.saldo))}{partner.saldo < 0 ? ' (excedido)' : ''}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
               {allAdvances.length === 0 ? (
                 <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No hay adelantos a socios registrados.</div>
               ) : (
                 <div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-                     <div className="card" style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)' }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Henry Peraza</div>
-                        <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>${formatCurrency(allAdvances.filter(a => a.partner_name === 'Henry Peraza').reduce((s, a) => s + Number(a.amount_usd), 0))}</div>
-                     </div>
-                     <div className="card" style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)' }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Losbers Perez</div>
-                        <div style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>${formatCurrency(allAdvances.filter(a => a.partner_name === 'Losbers Perez').reduce((s, a) => s + Number(a.amount_usd), 0))}</div>
-                     </div>
-                  </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
@@ -1164,8 +1190,15 @@ export default function ClienteDashboard() {
                 </select>
               </div>
               <div>
-                <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Proyecto Relacionado</label>
+                <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Cliente</label>
+                <div className="input-field" style={{ background: 'rgba(255,255,255,0.03)', color: 'var(--text-muted)', cursor: 'default' }}>
+                  {client?.name || '—'}
+                </div>
+              </div>
+              <div>
+                <label className="text-muted" style={{ display: 'block', marginBottom: '0.5rem' }}>Proyecto del Cliente</label>
                 <select className="input-field" required value={advanceForm.project_id} onChange={e => setAdvanceForm({...advanceForm, project_id: e.target.value})}>
+                  <option value="">Seleccionar proyecto...</option>
                   {activeProjects.map(p => (
                     <option key={p.id} value={p.id}>{p.proposal_number ? `#${p.proposal_number} - ` : ''}{p.title}</option>
                   ))}

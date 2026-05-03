@@ -115,7 +115,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Floating Global AI Assistant - Solo para Admins */}
-      {role === 'admin' && (
+      {role !== null && role !== 'viewer' && (
         <FloatingAssistant onProposalSaved={() => {
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('proposalSaved'));
