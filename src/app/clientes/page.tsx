@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Lock
 } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useAdminAction } from '@/lib/useAdminAction';
@@ -62,7 +63,7 @@ export default function ClientesPage() {
 
     const { data, error } = await supabase
       .from('clients')
-      .insert([newClient])
+      .insert([{ id: uuidv4(), ...newClient }])
       .select();
 
     if (!error) {
